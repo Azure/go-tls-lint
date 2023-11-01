@@ -3,7 +3,10 @@ package main
 import "github.com/alecthomas/kong"
 
 func main() {
-	ctx := kong.Parse(&Probe{})
+	cli := &Probe{}
+	ctx := kong.Parse(cli)
+
+	ctx.BindTo(&cliProvider{Verbose: cli.Verbose}, (*Provider)(nil))
 
 	err := ctx.Run()
 	ctx.FatalIfErrorf(err)

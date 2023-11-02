@@ -14,8 +14,8 @@ const typeNameCryptoTLSConfig = "crypto/tls.Config"
 const typeNameCryptoTLSConfigPointer = "*crypto/tls.Config"
 
 var tlsConfigNamesBlockList = map[string]string{
-	"MinVersion": "Error: go 1.18 and onward has good defaults for MinVersion, no need to set it",
-	"MaxVersion": "Error: don't pin MaxVersion which disables future TLS versions",
+	"MinVersion": "ERROR: go 1.18 and onward has good defaults for MinVersion, no need to set it",
+	"MaxVersion": "ERROR: don't pin MaxVersion which disables future TLS versions",
 }
 
 var Analyzer = &analysis.Analyzer{

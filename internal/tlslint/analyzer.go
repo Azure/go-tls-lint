@@ -3,13 +3,15 @@ package tlslint
 import (
 	"fmt"
 	"go/ast"
+	"go/types"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/inspect"
 	"golang.org/x/tools/go/ast/inspector"
 )
 
-const typeNameCryptoTLSConfig = "crypto/tls.Config" 
+const typeNameCryptoTLSConfig = "crypto/tls.Config"
+const typeNameCryptoTLSConfigPointer = "*crypto/tls.Config"
 
 var tlsConfigNamesBlockList = map[string]string{
 	"MinVersion": "Error: go 1.18 and onward has good defaults for MinVersion, no need to set it",
@@ -56,7 +58,15 @@ func isTLSConfigType(pass *analysis.Pass, n ast.Expr) bool {
 	if actualType == nil {
 		return false
 	}
-	return  actualType.String() == typeNameCryptoTLSConfig
+
+	switch actualType := actualType.(type) {
+	case *types.Named:
+		return actualType.String() == typeNameCryptoTLSConfig
+	case *types.Pointer:
+		return actualType.String() == typeNameCryptoTLSConfigPointer
+	default:
+		return false
+	}
 }
 
 func processTLSConfigValue(pass *analysis.Pass, key ast.Expr, value ast.Expr) string {
@@ -79,7 +89,7 @@ func processTLSConfigValue(pass *analysis.Pass, key ast.Expr, value ast.Expr) st
 	}
 
 	return fmt.Sprintf("WARN: unexpected TLS config settings %q", keyIdent.Name)
-} 
+}
 
 func handleCompositeLit(pass *analysis.Pass, n *ast.CompositeLit) {
 	if !isTLSConfigType(pass, n.Type) {
@@ -102,4 +112,19 @@ func handleCompositeLit(pass *analysis.Pass, n *ast.CompositeLit) {
 }
 
 func handleAssignStmt(pass *analysis.Pass, n *ast.AssignStmt) {
+	if len(n.Lhs) < 1 || len(n.Rhs) < 1 {
+		return
+	}
+	lhs, ok := n.Lhs[0].(*ast.SelectorExpr) // TODO: handle multiple LHS
+	if !ok {
+		return
+	}
+	if !isTLSConfigType(pass, lhs.X) {
+		return
+	}
+
+	report := processTLSConfigValue(pass, lhs.Sel, n.Rhs[0])
+	if report != "" {
+		pass.Reportf(n.Pos(), report)
+	}
 }

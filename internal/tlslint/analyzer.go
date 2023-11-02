@@ -51,7 +51,11 @@ func run(pass *analysis.Pass) (any, error) {
 			return true
 		}
 
-		return !hasIgnoreComment(commentMaps, issue.Node)
+		if hasIgnoreComment(commentMaps, issue.Node) {
+			return false
+		}
+
+		return true
 	}
 
 	var issues []*Issue
@@ -93,7 +97,7 @@ func isTLSConfigType(pass *analysis.Pass, n ast.Expr) bool {
 }
 
 func handleTLSConfigValue(
-	node ast.Node,
+	n ast.Node,
 	key ast.Expr,
 	value ast.Expr,
 ) *Issue {
@@ -110,19 +114,19 @@ func handleTLSConfigValue(
 		return nil
 	}
 
-	if reason, exists := tlsConfigNamesBlockList[keyIdent.Name]; exists {
-		return &Issue{
-			Severity: IssueSeverityError,
-			Message:  reason,
-			Node:     node,
-		}
+	issue := &Issue{
+		Node: n,
 	}
 
-	return &Issue{
-		Severity: IssueSeverityWarning,
-		Message:  fmt.Sprintf("Unexpected TLS config settings %q", keyIdent.Name),
-		Node:     node,
+	if reason, exists := tlsConfigNamesBlockList[keyIdent.Name]; exists {
+		issue.Severity = IssueSeverityError
+		issue.Message = reason
+	} else {
+		issue.Severity = IssueSeverityWarning
+		issue.Message = fmt.Sprintf("Unexpected TLS config settings %q", keyIdent.Name)
 	}
+
+	return issue
 }
 
 func handleCompositeLit(pass *analysis.Pass, n *ast.CompositeLit) []*Issue {
@@ -137,7 +141,7 @@ func handleCompositeLit(pass *analysis.Pass, n *ast.CompositeLit) []*Issue {
 			continue
 		}
 
-		issue := handleTLSConfigValue(n, kv.Key, kv.Value)
+		issue := handleTLSConfigValue(e, kv.Key, kv.Value)
 		if issue != nil {
 			rv = append(rv, issue)
 		}

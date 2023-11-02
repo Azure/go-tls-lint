@@ -33,6 +33,9 @@ lint: ## Run linters against code.
 tidy: ## Tidy go.mod and go.sum.
 	go mod tidy
 
+install-go-tls-lint: ## Install go-tls-lint local go bin.
+	go install ./cmd/go-tls-lint
+
 
 ##@ Build
 

@@ -27,6 +27,7 @@ var Analyzer = &analysis.Analyzer{
 	},
 }
 
+
 func run(pass *analysis.Pass) (any, error) {
 	inspector := pass.ResultOf[inspect.Analyzer].(*inspector.Inspector)
 	nodeFilter := []ast.Node{
@@ -37,12 +38,14 @@ func run(pass *analysis.Pass) (any, error) {
 		(*ast.AssignStmt)(nil),
 	}
 
+	commentMaps := newLazyCommentMaps(pass)
+
 	inspector.Preorder(nodeFilter, func(n ast.Node) {
 		switch n := n.(type) {
 		case *ast.CompositeLit:
-			handleCompositeLit(pass, n)
+			handleCompositeLit(pass, commentMaps, n)
 		case *ast.AssignStmt:
-			handleAssignStmt(pass, n)
+			handleAssignStmt(pass, commentMaps, n)
 		}
 	})
 
@@ -91,7 +94,7 @@ func processTLSConfigValue(pass *analysis.Pass, key ast.Expr, value ast.Expr) st
 	return fmt.Sprintf("WARN: unexpected TLS config settings %q", keyIdent.Name)
 }
 
-func handleCompositeLit(pass *analysis.Pass, n *ast.CompositeLit) {
+func handleCompositeLit(pass *analysis.Pass, commentMaps *lazyCommentMaps, n *ast.CompositeLit) {
 	if !isTLSConfigType(pass, n.Type) {
 		return
 	}
@@ -107,11 +110,15 @@ func handleCompositeLit(pass *analysis.Pass, n *ast.CompositeLit) {
 			continue
 		}
 
+		if hasIgnoreComment(commentMaps, kv) {
+			continue
+		}
+
 		pass.Reportf(kv.Pos(), report)
 	}
 }
 
-func handleAssignStmt(pass *analysis.Pass, n *ast.AssignStmt) {
+func handleAssignStmt(pass *analysis.Pass, commentMaps *lazyCommentMaps, n *ast.AssignStmt) {
 	if len(n.Lhs) < 1 || len(n.Rhs) < 1 {
 		return
 	}
@@ -124,7 +131,13 @@ func handleAssignStmt(pass *analysis.Pass, n *ast.AssignStmt) {
 	}
 
 	report := processTLSConfigValue(pass, lhs.Sel, n.Rhs[0])
-	if report != "" {
-		pass.Reportf(n.Pos(), report)
+	if report == "" {
+		return
 	}
+
+	if hasIgnoreComment(commentMaps, n) {
+		return
+	}
+
+	pass.Reportf(n.Pos(), report)
 }

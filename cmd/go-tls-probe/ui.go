@@ -24,7 +24,6 @@ type cliProvider struct {
 	Verbose bool
 }
 
-
 var _ Provider = (*cliProvider)(nil)
 
 func (*cliProvider) Context() (context.Context, context.CancelFunc) {
@@ -34,7 +33,7 @@ func (*cliProvider) Context() (context.Context, context.CancelFunc) {
 func (p *cliProvider) Logger() *slog.Logger {
 	opts := &slog.HandlerOptions{
 		AddSource: true,
-		Level: slog.LevelInfo,
+		Level:     slog.LevelInfo,
 	}
 	if p.Verbose {
 		opts.Level = slog.LevelDebug

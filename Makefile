@@ -33,11 +33,14 @@ lint: ## Run linters against code.
 tidy: ## Tidy go.mod and go.sum.
 	go mod tidy
 
+install-go-tls-lint: fmt tidy vet ## Install go-tls-lint local go bin.
+	go install ./cmd/go-tls-lint
+
 
 ##@ Build
 
 build: build-cmd ## Build the project.
 
-build-cmd: fmt vet ## Build command line binaries.
+build-cmd: fmt tidy vet ## Build command line binaries.
 	go build -o bin/go-tls-lint ./cmd/go-tls-lint
 	go build -o bin/go-tls-probe ./cmd/go-tls-probe

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"go/ast"
 	"go/types"
+	"reflect"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/inspect"
@@ -13,20 +14,21 @@ import (
 const typeNameCryptoTLSConfig = "crypto/tls.Config"
 const typeNameCryptoTLSConfigPointer = "*crypto/tls.Config"
 
-var tlsConfigNamesBlockList = map[string]string{
-	"MinVersion": "ERROR: go 1.18 and onward has good defaults for MinVersion, no need to set it",
-	"MaxVersion": "ERROR: don't pin MaxVersion which disables future TLS versions",
-}
+var disableIgnoreComment bool
 
 var Analyzer = &analysis.Analyzer{
 	Name: "tls",
-	Doc:  "Checks TLS configurations",
+	Doc:  "Checks common TLS configuration mistakes.",
 	Run:  run,
 	Requires: []*analysis.Analyzer{
 		inspect.Analyzer,
 	},
+	ResultType: reflect.TypeOf([]*Issue(nil)),
 }
 
+func init() {
+	Analyzer.Flags.BoolVar(&disableIgnoreComment, "disable-ignore-comment", false, "disallow ignoring issues with a comment")
+}
 
 func run(pass *analysis.Pass) (any, error) {
 	inspector := pass.ResultOf[inspect.Analyzer].(*inspector.Inspector)
@@ -40,16 +42,34 @@ func run(pass *analysis.Pass) (any, error) {
 
 	commentMaps := newLazyCommentMaps(pass)
 
+	isValidIssue := func(issue *Issue) bool {
+		if issue.Severity == IssueSeverityError {
+			return true
+		}
+
+		if disableIgnoreComment {
+			return true
+		}
+
+		return !hasIgnoreComment(commentMaps, issue.Node)
+	}
+
+	var issues []*Issue
+
 	inspector.Preorder(nodeFilter, func(n ast.Node) {
 		switch n := n.(type) {
 		case *ast.CompositeLit:
-			handleCompositeLit(pass, commentMaps, n)
+			issues = append(issues, filter(handleCompositeLit(pass, n), isValidIssue)...)
 		case *ast.AssignStmt:
-			handleAssignStmt(pass, commentMaps, n)
+			issues = append(issues, filter(handleAssignStmt(pass, n), isValidIssue)...)
 		}
 	})
 
-	return nil, nil
+	for _, issue := range issues {
+		pass.Reportf(issue.Node.Pos(), issue.String())
+	}
+
+	return issues, nil
 }
 
 func isTLSConfigType(pass *analysis.Pass, n ast.Expr) bool {
@@ -72,72 +92,76 @@ func isTLSConfigType(pass *analysis.Pass, n ast.Expr) bool {
 	}
 }
 
-func processTLSConfigValue(pass *analysis.Pass, key ast.Expr, value ast.Expr) string {
+func handleTLSConfigValue(
+	node ast.Node,
+	key ast.Expr,
+	value ast.Expr,
+) *Issue {
 	if key == nil {
-		return ""
+		return nil
 	}
 
 	keyIdent, ok := key.(*ast.Ident)
 	if !ok {
-		return ""
+		return nil
 	}
 
 	if keyIdent.Name == "" {
-		return ""
+		return nil
 	}
 
 	if reason, exists := tlsConfigNamesBlockList[keyIdent.Name]; exists {
-		// something
-		return reason
+		return &Issue{
+			Severity: IssueSeverityError,
+			Message:  reason,
+			Node:     node,
+		}
 	}
 
-	return fmt.Sprintf("WARN: unexpected TLS config settings %q", keyIdent.Name)
+	return &Issue{
+		Severity: IssueSeverityWarning,
+		Message:  fmt.Sprintf("Unexpected TLS config settings %q", keyIdent.Name),
+		Node:     node,
+	}
 }
 
-func handleCompositeLit(pass *analysis.Pass, commentMaps *lazyCommentMaps, n *ast.CompositeLit) {
+func handleCompositeLit(pass *analysis.Pass, n *ast.CompositeLit) []*Issue {
 	if !isTLSConfigType(pass, n.Type) {
-		return
+		return nil
 	}
 
+	var rv []*Issue
 	for _, e := range n.Elts {
 		kv, ok := e.(*ast.KeyValueExpr)
 		if !ok {
 			continue
 		}
 
-		report := processTLSConfigValue(pass, kv.Key, kv.Value)
-		if report == "" {
-			continue
+		issue := handleTLSConfigValue(n, kv.Key, kv.Value)
+		if issue != nil {
+			rv = append(rv, issue)
 		}
-
-		if hasIgnoreComment(commentMaps, kv) {
-			continue
-		}
-
-		pass.Reportf(kv.Pos(), report)
 	}
+
+	return rv
 }
 
-func handleAssignStmt(pass *analysis.Pass, commentMaps *lazyCommentMaps, n *ast.AssignStmt) {
+func handleAssignStmt(pass *analysis.Pass, n *ast.AssignStmt) []*Issue {
 	if len(n.Lhs) < 1 || len(n.Rhs) < 1 {
-		return
+		return nil
 	}
 	lhs, ok := n.Lhs[0].(*ast.SelectorExpr) // TODO: handle multiple LHS
 	if !ok {
-		return
+		return nil
 	}
 	if !isTLSConfigType(pass, lhs.X) {
-		return
+		return nil
 	}
 
-	report := processTLSConfigValue(pass, lhs.Sel, n.Rhs[0])
-	if report == "" {
-		return
+	issue := handleTLSConfigValue(n, lhs.Sel, n.Rhs[0])
+	if issue != nil {
+		return []*Issue{issue}
 	}
 
-	if hasIgnoreComment(commentMaps, n) {
-		return
-	}
-
-	pass.Reportf(n.Pos(), report)
+	return nil
 }

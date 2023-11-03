@@ -1,8 +1,4 @@
 # Ref: https://goreleaser.com
-before:
-  hooks:
-    - make fmt vet tidy
-
 builds:
   - id: go-tls-lint
     main: ./cmd/go-tls-lint

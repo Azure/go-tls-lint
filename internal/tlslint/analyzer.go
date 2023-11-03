@@ -1,7 +1,6 @@
 package tlslint
 
 import (
-	"fmt"
 	"go/ast"
 	"go/types"
 	"reflect"
@@ -115,19 +114,22 @@ func handleTLSConfigValue(
 		return nil
 	}
 
-	issue := &Issue{
-		Node: n,
-	}
-
 	if reason, exists := tlsConfigNamesBlockList[keyIdent.Name]; exists {
-		issue.Severity = IssueSeverityError
-		issue.Message = reason
-	} else {
-		issue.Severity = IssueSeverityWarning
-		issue.Message = fmt.Sprintf("Unexpected TLS config settings %q", keyIdent.Name)
+		return &Issue{
+			Node:     n,
+			Severity: IssueSeverityError,
+			Message:  reason,
+		}
+	}
+	if reason, exists := tlsConfigNamesWarnList[keyIdent.Name]; exists {
+		return &Issue{
+			Node:     n,
+			Severity: IssueSeverityWarning,
+			Message:  reason,
+		}
 	}
 
-	return issue
+	return nil
 }
 
 func handleCompositeLit(pass *analysis.Pass, n *ast.CompositeLit) []*Issue {

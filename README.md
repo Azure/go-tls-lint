@@ -5,7 +5,7 @@ An opinionated Go code linter for detecting TLS config issues.
 ## Installation
 
 ```
-$ go install github.com/Azure/go-tls-lint@latest
+$ go install github.com/Azure/go-tls-lint/cmd/go-tls-lint@latest
 ```
 
 ## Usage

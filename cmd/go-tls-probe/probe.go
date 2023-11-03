@@ -11,6 +11,8 @@ type Probe struct {
 	Verbose bool `short:"v" help:"Enable verbose logging."`
 
 	Addr string `arg:"" help:"host[:port] to probe."`
+
+	Version VersionFlag `name:"version" help:"Print version and exit."`
 }
 
 func (p *Probe) Run(provider Provider) error {

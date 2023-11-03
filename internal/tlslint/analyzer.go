@@ -19,6 +19,7 @@ var disableIgnoreComment bool
 var Analyzer = &analysis.Analyzer{
 	Name: "tls",
 	Doc:  "Checks common TLS configuration mistakes.",
+	URL:  "https://github.com/Azure/go-tls-lint",
 	Run:  run,
 	Requires: []*analysis.Analyzer{
 		inspect.Analyzer,

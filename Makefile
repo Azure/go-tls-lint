@@ -1,3 +1,5 @@
+LDFLAGS ?= -ldflags="-X 'internal/version.Version=(devel)'"
+
 all: help
 
 ##@ General
@@ -20,6 +22,7 @@ help: ## Display this help.
 
 fmt: ## Run go fmt against code.
 	go fmt ./...
+	goimports -w -local github.com/Azure/go-tls-lint .
 
 vet: ## Run go vet against code.
 	go vet ./...
@@ -34,7 +37,7 @@ tidy: ## Tidy go.mod and go.sum.
 	go mod tidy
 
 install-go-tls-lint: fmt tidy vet ## Install go-tls-lint local go bin.
-	go install ./cmd/go-tls-lint
+	go install $(LDFLAGS) ./cmd/go-tls-lint
 
 
 ##@ Build
@@ -42,5 +45,5 @@ install-go-tls-lint: fmt tidy vet ## Install go-tls-lint local go bin.
 build: build-cmd ## Build the project.
 
 build-cmd: fmt tidy vet ## Build command line binaries.
-	go build -o bin/go-tls-lint ./cmd/go-tls-lint
-	go build -o bin/go-tls-probe ./cmd/go-tls-probe
+	go build $(LDFLAGS) -o bin/go-tls-lint ./cmd/go-tls-lint
+	go build $(LDFLAGS) -o bin/go-tls-probe ./cmd/go-tls-probe

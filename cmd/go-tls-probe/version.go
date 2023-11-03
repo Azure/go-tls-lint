@@ -3,8 +3,9 @@ package main
 import (
 	"fmt"
 
-	"github.com/Azure/go-tls-lint/internal/version"
 	"github.com/alecthomas/kong"
+
+	"github.com/Azure/go-tls-lint/internal/version"
 )
 
 type VersionFlag bool

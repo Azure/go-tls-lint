@@ -22,6 +22,7 @@ help: ## Display this help.
 
 fmt: ## Run go fmt against code.
 	go fmt ./...
+	goimports -w -local github.com/Azure/go-tls-lint .
 
 vet: ## Run go vet against code.
 	go vet ./...

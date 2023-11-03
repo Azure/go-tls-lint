@@ -5,8 +5,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/Azure/go-tls-lint/internal/tlslint"
 	"golang.org/x/tools/go/analysis/analysistest"
+
+	"github.com/Azure/go-tls-lint/internal/tlslint"
 )
 
 func TestAll(t *testing.T) {
